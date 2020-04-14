@@ -1,0 +1,42 @@
+node('jenkins-slave') {
+
+    stage('maven build & docker build') {
+        withCredentials([usernamePassword(credentialsId: 'github', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+            sh 'git clone https://$USERNAME:$PASSWORD@github.com/openzon/jenkins-on-eks.git'
+            //sh 'git clone git@github.com:openzon/jenkins-on-eks.git'
+        }
+
+        container('maven') {
+            stage('mvn install') {
+                dir('jenkins-on-eks/spring-boot') {
+                    sh 'mvn clean package'
+                }
+            }
+        }
+
+        container('docker') {
+            stage('docker build') {
+                dir('jenkins-on-eks/spring-boot') {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    sh '''
+                        docker build -t hello-spring-boot .
+                        docker tag hello-spring-boot openzon/hello-spring-boot:${BUILD_NUMBER}
+                        docker login -u=$USERNAME -p=$PASSWORD
+                        docker push openzon/hello-spring-boot:${BUILD_NUMBER}
+                    '''
+                    }
+                }
+            }
+        }
+    }
+
+    stage('deploy') {
+       container('kubectl') {
+            stage('kubectl get pod') {
+                sh '''
+                    kubectl -n default set image deployment/hello-spring-boot hello-spring-boot=openzon/hello-spring-boot:${BUILD_NUMBER} --record
+                '''
+            }
+        }
+    }
+}

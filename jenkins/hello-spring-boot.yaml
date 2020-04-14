@@ -1,0 +1,56 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-spring-boot
+  labels:
+    app: hello-spring-boot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-spring-boot
+  template:
+    metadata:
+      labels:
+        app: hello-spring-boot
+    spec:
+      containers:
+      - name: hello-spring-boot
+        image: openzon/hello-spring-boot:latest
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-spring-boot
+  labels:
+    app: hello-spring-boot
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  selector:
+    app: hello-spring-boot
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: hello-spring-boot
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+  labels:
+    app: hello-spring-boot
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /*
+            backend:
+              serviceName: hello-spring-boot
+              servicePort: 80
+
